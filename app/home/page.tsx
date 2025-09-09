@@ -307,12 +307,27 @@ export default function HomePage() {
     }, 800)
   }
 
-  const handleSidebarItemClick = (href: string) => {
-    if (!sidebarOpen) {
-      setSidebarOpen(true)
-    }
-    console.log(`Navigating to: ${href}`)
+ const handleSidebarItemClick = (href: string) => {
+  if (!sidebarOpen) {
+    setSidebarOpen(true)
   }
+  router.push(href)   // 👉 ab page navigate karega
+}
+
+useEffect(() => {
+  const saved = localStorage.getItem("sidebarOpen");
+  if (saved !== null) {
+    setSidebarOpen(saved === "true");
+  }
+}, []);
+
+const toggleSidebar = () => {
+  const newState = !sidebarOpen;
+  setSidebarOpen(newState);
+  localStorage.setItem("sidebarOpen", String(newState));
+};
+
+
 
   const handleLogoClick = () => {
     if (!sidebarOpen) {
@@ -337,6 +352,7 @@ export default function HomePage() {
         return <Info className="h-4 w-4 text-muted-foreground" />
     }
   }
+<Button onClick={toggleSidebar}>Toggle</Button>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 font-sans">
