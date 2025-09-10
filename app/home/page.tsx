@@ -369,6 +369,11 @@ export default function HomePage() {
     }
   }
 
+  const handleProfileNavigation = (path: string) => {
+    setProfileDropdownOpen(false) // Close dropdown
+    router.push(path)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 font-sans">
       <aside
@@ -564,15 +569,24 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="border-t border-border"></div>
-                    <div className="p-3 hover:bg-primary/5 cursor-pointer flex items-center">
+                    <div
+                      className="p-3 hover:bg-primary/5 cursor-pointer flex items-center"
+                      onClick={() => handleProfileNavigation("/home/profile")}
+                    >
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile Settings</span>
                     </div>
-                    <div className="p-3 hover:bg-primary/5 cursor-pointer flex items-center">
+                    <div
+                      className="p-3 hover:bg-primary/5 cursor-pointer flex items-center"
+                      onClick={() => handleProfileNavigation("/home/preferences")}
+                    >
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Preferences</span>
                     </div>
-                    <div className="p-3 hover:bg-primary/5 cursor-pointer flex items-center">
+                    <div
+                      className="p-3 hover:bg-primary/5 cursor-pointer flex items-center"
+                      onClick={() => handleProfileNavigation("/home/security")}
+                    >
                       <Shield className="mr-2 h-4 w-4" />
                       <span>Security</span>
                     </div>
@@ -693,7 +707,7 @@ export default function HomePage() {
                         <Layers className="h-5 w-5 text-secondary" />
                         <h4 className="font-semibold text-secondary">ICD-11 Mappings</h4>
                         <Badge variant="outline" className="text-xs">
-                          TM2 + Biomedicine
+                          TM2 + Biomed
                         </Badge>
                       </div>
                       <Input placeholder="Search ICD-11 codes..." className="bg-secondary/5 border-secondary/20" />
