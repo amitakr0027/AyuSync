@@ -64,7 +64,7 @@ const getSidebarMenuItems = (userRole: string) => {
       { icon: Calendar, label: "Appointments", href: "/appointments", badge: "3" },
       { icon: ClipboardList, label: "Problem List", href: "/problems" },
       { icon: FlaskConical, label: "Lab Results", href: "/lab", badge: "2" },
-      { icon: CloudUpload, label: "Bundle Upload", href: "/bundle" },
+      { icon: CloudUpload, label: "Bundle Upload", href: "/bundle-upload" },
       { icon: Code, label: "NAMASTE", href: "/namaste" },
       { icon: Languages, label: "WHO Terms", href: "/who-terms" },
       { icon: Layers, label: "ICD-11", href: "/icd11" },
@@ -318,10 +318,12 @@ export default function HomePage() {
   }
 
   const handleSidebarItemClick = (href: string) => {
+    router.push(href);
     if (!sidebarOpen) {
       setSidebarOpen(true)
     }
-    router.push(href) // 👉 ab page navigate karega
+
+    // router.push(href) // 👉 ab page navigate karega
   }
 
   useEffect(() => {
@@ -335,6 +337,12 @@ export default function HomePage() {
     const newState = !sidebarOpen
     setSidebarOpen(newState)
     localStorage.setItem("sidebarOpen", String(newState))
+
+  //   if (mobileMenuOpen) {
+  //   setMobileMenuOpen(false);
+  // }
+    // console.log(`Navigating to: ${href}`)
+
   }
 
   const handleLogoClick = () => {
