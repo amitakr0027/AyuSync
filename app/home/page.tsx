@@ -7,13 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   Search,
   BarChart3,
   Settings,
@@ -268,6 +261,8 @@ export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userRole, setUserRole] = useState("doctor")
   const [isAbhaAuth, setIsAbhaAuth] = useState(false)
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -276,6 +271,21 @@ export default function HomePage() {
     }
 
     setUserRole("doctor")
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (!target.closest(".notification-dropdown") && !target.closest(".notification-button")) {
+        setNotificationDropdownOpen(false)
+      }
+      if (!target.closest(".profile-dropdown") && !target.closest(".profile-button")) {
+        setProfileDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
   const sidebarMenuItems = getSidebarMenuItems(userRole)
@@ -307,27 +317,25 @@ export default function HomePage() {
     }, 800)
   }
 
- const handleSidebarItemClick = (href: string) => {
-  if (!sidebarOpen) {
-    setSidebarOpen(true)
+  const handleSidebarItemClick = (href: string) => {
+    if (!sidebarOpen) {
+      setSidebarOpen(true)
+    }
+    router.push(href) // 👉 ab page navigate karega
   }
-  router.push(href)   // 👉 ab page navigate karega
-}
 
-useEffect(() => {
-  const saved = localStorage.getItem("sidebarOpen");
-  if (saved !== null) {
-    setSidebarOpen(saved === "true");
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebarOpen")
+    if (saved !== null) {
+      setSidebarOpen(saved === "true")
+    }
+  }, [])
+
+  const toggleSidebar = () => {
+    const newState = !sidebarOpen
+    setSidebarOpen(newState)
+    localStorage.setItem("sidebarOpen", String(newState))
   }
-}, []);
-
-const toggleSidebar = () => {
-  const newState = !sidebarOpen;
-  setSidebarOpen(newState);
-  localStorage.setItem("sidebarOpen", String(newState));
-};
-
-
 
   const handleLogoClick = () => {
     if (!sidebarOpen) {
@@ -352,7 +360,6 @@ const toggleSidebar = () => {
         return <Info className="h-4 w-4 text-muted-foreground" />
     }
   }
-<Button onClick={toggleSidebar}>Toggle</Button>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 font-sans">
@@ -456,106 +463,122 @@ const toggleSidebar = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="relative hover:bg-primary/10 transition-colors">
-                    <Bell className="h-5 w-5" />
-                    {notifications > 0 && (
-                      <span className="absolute -top-1 -right-1 h-5 w-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center animate-pulse">
-                        {notifications}
-                      </span>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-80" align="end" forceMount>
-                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/5 to-secondary/5">
-                    <h3 className="font-semibold text-foreground">Notifications</h3>
-                    <Badge variant="secondary" className="text-xs">
-                      {sampleNotifications.filter((n) => !n.read).length} new
-                    </Badge>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <div className="max-h-80 overflow-y-auto">
-                    {sampleNotifications.map((notification) => (
-                      <DropdownMenuItem key={notification.id} className="p-3 hover:bg-primary/5 cursor-pointer">
-                        <div className="flex items-start gap-3 w-full">
-                          <div className="mt-1">{getNotificationIcon(notification.type)}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h4 className="font-medium text-sm text-foreground truncate">{notification.title}</h4>
-                              {!notification.read && (
-                                <div className="h-2 w-2 bg-primary rounded-full flex-shrink-0 ml-2" />
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2 mb-1">{notification.message}</p>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              {new Date(notification.timestamp).toLocaleString()}
+              <div className="relative notification-dropdown">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="relative hover:bg-primary/10 transition-colors notification-button"
+                  onClick={() => {
+                    setNotificationDropdownOpen(!notificationDropdownOpen)
+                    setProfileDropdownOpen(false)
+                  }}
+                >
+                  <Bell className="h-5 w-5" />
+                  {notifications > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center animate-pulse">
+                      {notifications}
+                    </span>
+                  )}
+                </Button>
+                {notificationDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-background border border-border rounded-lg shadow-lg z-50">
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/5 to-secondary/5">
+                      <h3 className="font-semibold text-foreground">Notifications</h3>
+                      <Badge variant="secondary" className="text-xs">
+                        {sampleNotifications.filter((n) => !n.read).length} new
+                      </Badge>
+                    </div>
+                    <div className="border-t border-border"></div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {sampleNotifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className="p-3 hover:bg-primary/5 cursor-pointer border-b border-border last:border-b-0"
+                        >
+                          <div className="flex items-start gap-3 w-full">
+                            <div className="mt-1">{getNotificationIcon(notification.type)}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <h4 className="font-medium text-sm text-foreground truncate">{notification.title}</h4>
+                                {!notification.read && (
+                                  <div className="h-2 w-2 bg-primary rounded-full flex-shrink-0 ml-2" />
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2 mb-1">{notification.message}</p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {new Date(notification.timestamp).toLocaleString()}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </DropdownMenuItem>
-                    ))}
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="p-3 text-center hover:bg-primary/5">
-                    <span className="text-sm text-primary font-medium">View All Notifications</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-primary/20 transition-all"
-                  >
-                    <Avatar className="h-10 w-10 ring-2 ring-primary/20">
-                      <AvatarImage src="/caring-doctor.png" alt="Dr. Sharma" />
-                      <AvatarFallback className="bg-primary text-primary-foreground font-semibold">DS</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64" align="end" forceMount>
-                  <div className="flex items-center justify-start gap-3 p-3 bg-gradient-to-r from-primary/5 to-secondary/5">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src="/caring-doctor.png" alt="Dr. Sharma" />
-                      <AvatarFallback className="bg-primary text-primary-foreground">DS</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col space-y-1">
-                      <p className="font-semibold text-foreground">Dr. Rajesh Sharma</p>
-                      <p className="text-sm text-muted-foreground">Ayurvedic Physician</p>
-                      <p className="text-xs text-muted-foreground">
-                        {isAbhaAuth ? (
-                          <span className="text-blue-600 font-medium">ABHA ID: 12-3456-7890-1234</span>
-                        ) : (
-                          "ABHA ID: 12-3456-7890-1234"
-                        )}
-                      </p>
+                      ))}
+                    </div>
+                    <div className="border-t border-border"></div>
+                    <div className="p-3 text-center hover:bg-primary/5 cursor-pointer">
+                      <span className="text-sm text-primary font-medium">View All Notifications</span>
                     </div>
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="hover:bg-primary/5">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile Settings</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="hover:bg-primary/5">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Preferences</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="hover:bg-primary/5">
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span>Security</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="hover:bg-destructive/5 text-destructive cursor-pointer"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sign Out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                )}
+              </div>
+
+              <div className="relative profile-dropdown">
+                <Button
+                  variant="ghost"
+                  className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-primary/20 transition-all profile-button"
+                  onClick={() => {
+                    setProfileDropdownOpen(!profileDropdownOpen)
+                    setNotificationDropdownOpen(false)
+                  }}
+                >
+                  <Avatar className="h-10 w-10 ring-2 ring-primary/20">
+                    <AvatarImage src="/caring-doctor.png" alt="Dr. Sharma" />
+                    <AvatarFallback className="bg-primary text-primary-foreground font-semibold">DS</AvatarFallback>
+                  </Avatar>
+                </Button>
+                {profileDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-lg shadow-lg z-50">
+                    <div className="flex items-center justify-start gap-3 p-3 bg-gradient-to-r from-primary/5 to-secondary/5">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src="/caring-doctor.png" alt="Dr. Sharma" />
+                        <AvatarFallback className="bg-primary text-primary-foreground">DS</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col space-y-1">
+                        <p className="font-semibold text-foreground">Dr. Rajesh Sharma</p>
+                        <p className="text-sm text-muted-foreground">Ayurvedic Physician</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isAbhaAuth ? (
+                            <span className="text-blue-600 font-medium">ABHA ID: 12-3456-7890-1234</span>
+                          ) : (
+                            "ABHA ID: 12-3456-7890-1234"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="border-t border-border"></div>
+                    <div className="p-3 hover:bg-primary/5 cursor-pointer flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile Settings</span>
+                    </div>
+                    <div className="p-3 hover:bg-primary/5 cursor-pointer flex items-center">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Preferences</span>
+                    </div>
+                    <div className="p-3 hover:bg-primary/5 cursor-pointer flex items-center">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Security</span>
+                    </div>
+                    <div className="border-t border-border"></div>
+                    <div
+                      className="p-3 hover:bg-destructive/5 text-destructive cursor-pointer flex items-center"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Sign Out</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -889,6 +912,7 @@ const toggleSidebar = () => {
                   </CardContent>
                 </Card>
               )}
+
               <Card className="shadow-xl hover:shadow-2xl transition-all duration-500 border-secondary/10">
                 <CardHeader className="bg-gradient-to-r from-secondary/5 to-accent/5 rounded-t-lg">
                   <CardTitle className="flex items-center gap-3 text-xl">
@@ -966,6 +990,7 @@ const toggleSidebar = () => {
                 </CardContent>
               </Card>
             </div>
+
             <div className="xl:col-span-1 space-y-6">
               <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-primary/10">
                 <CardHeader className="bg-gradient-to-r from-accent/5 to-primary/5 rounded-t-lg">
@@ -1003,6 +1028,7 @@ const toggleSidebar = () => {
                   </Button>
                 </CardContent>
               </Card>
+
               <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-primary/10">
                 <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-t-lg">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -1032,6 +1058,7 @@ const toggleSidebar = () => {
                   </Button>
                 </CardContent>
               </Card>
+
               <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-primary/10">
                 <CardHeader className="bg-gradient-to-r from-secondary/5 to-accent/5 rounded-t-lg">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -1064,6 +1091,7 @@ const toggleSidebar = () => {
                   </Button>
                 </CardContent>
               </Card>
+
               <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-primary/10">
                 <CardHeader className="bg-gradient-to-r from-accent/5 to-primary/5 rounded-t-lg">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -1105,6 +1133,7 @@ const toggleSidebar = () => {
                   </div>
                 </CardContent>
               </Card>
+
               <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-primary/10">
                 <CardHeader className="bg-gradient-to-r from-secondary/5 to-accent/5 rounded-t-lg">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -1164,7 +1193,6 @@ const toggleSidebar = () => {
                   </div>
                 </CardContent>
               </Card>
-              {/* Terminology Version & Sync Tracker */}
             </div>
           </div>
         </main>
