@@ -8,6 +8,8 @@ import { TeamSection } from "@/components/sections/team-section"
 import { CtaSection } from "@/components/sections/cta-section"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
+import { DualCoding } from "@/components/sections/DualCoding"
+import { BundleManager } from "@/components/sections/BundleManager"
 
 export default function HomePage() {
   return (
@@ -22,6 +24,8 @@ export default function HomePage() {
         <TestimonialsSection />
         <TeamSection />
         <CtaSection />
+        <DualCoding />
+        <BundleManager />
       </main>
       <Footer />
     </div>

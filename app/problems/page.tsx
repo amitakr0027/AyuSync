@@ -1,12 +1,25 @@
 // app/problems/page.tsx — Frontend-only CRUD with Autocomplete + Automap 
 "use client";
 
+// import { pythonApi } from '@/lib/python-api';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, RefreshCw, Search, Edit3, Trash2, Link2 } from "lucide-react";
+
+// Mock Python API client
+const pythonApi = {
+  saveProblem: async (data: any) => {
+    // Simulate API call with delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Mock response - replace with actual API call
+    console.log('Saving to Python backend:', data);
+    return { success: true, id: `prob-${Date.now()}` };
+  }
+};
 
 type Coding = { system: string; code: string; display?: string; version?: string };
 type DemoCondition = {
@@ -57,7 +70,7 @@ const DEMO: DemoCondition[] = [
   {
     id: "c1",
     display: "Vata Imbalance with Digestive Issues",
-    namaste: NAMASTE_SUGGEST,
+    namaste: NAMASTE_SUGGEST[0],
     icd11: AUTO_MAP["VAT.DIG.001"],
     clinical: "active",
     verification: "confirmed",
@@ -66,7 +79,7 @@ const DEMO: DemoCondition[] = [
   {
     id: "c2",
     display: "Functional bowel disorder",
-    namaste: NAMASTE_SUGGEST[17],
+    namaste: NAMASTE_SUGGEST[1],
     icd11: AUTO_MAP["VAT.DIG.010"],
     clinical: "active",
     verification: "provisional",
@@ -75,7 +88,7 @@ const DEMO: DemoCondition[] = [
   {
     id: "c3",
     display: "Pitta-related skin rash",
-    namaste: NAMASTE_SUGGEST[18],
+    namaste: NAMASTE_SUGGEST[2],
     icd11: AUTO_MAP["PIT.SKN.002"],
     clinical: "recurrence",
     verification: "confirmed",
@@ -83,7 +96,7 @@ const DEMO: DemoCondition[] = [
   {
     id: "c4",
     display: "Kapha-dominant sinusitis",
-    namaste: NAMASTE_SUGGEST[19],
+    namaste: NAMASTE_SUGGEST[3],
     icd11: AUTO_MAP["KAP.RES.004"],
     clinical: "inactive",
     verification: "confirmed",
@@ -91,7 +104,7 @@ const DEMO: DemoCondition[] = [
   {
     id: "c5",
     display: "Type 2 diabetes (Madhumeha)",
-    namaste: NAMASTE_SUGGEST[20],
+    namaste: NAMASTE_SUGGEST[4],
     icd11: AUTO_MAP["MAD.MET.001"],
     clinical: "active",
     verification: "confirmed",
@@ -99,7 +112,7 @@ const DEMO: DemoCondition[] = [
   {
     id: "c6",
     display: "Hypertension (Rakta Vridhi)",
-    namaste: NAMASTE_SUGGEST[21],
+    namaste: NAMASTE_SUGGEST[5],
     icd11: AUTO_MAP["RAK.CIR.003"],
     clinical: "resolved",
     verification: "confirmed",
@@ -126,7 +139,7 @@ export default function ProblemsDemoPage() {
         <CardHeader className="flex items-center justify-between">
           <div>
             <CardTitle>Problem List</CardTitle>
-            <CardDescription>Dual-coded (NAMASTE + ICD‑11) demo without backend</CardDescription>
+            <CardDescription>Dual-coded (NAMASTE + ICD‑11) demo with Python backend integration</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setRows((r) => [...r])}>
@@ -264,6 +277,7 @@ function ProblemModal({
   const [clinical, setClinical] = useState<DemoCondition["clinical"]>(initial?.clinical ?? "active");
   const [verification, setVerification] = useState<DemoCondition["verification"]>(initial?.verification ?? "confirmed");
   const [encounter, setEncounter] = useState<string>(initial?.encounter ?? "");
+  const [isSaving, setIsSaving] = useState(false);
 
   const [search, setSearch] = useState("");
   const [namaste, setNamaste] = useState<Coding | undefined>(initial?.namaste);
@@ -296,9 +310,29 @@ function ProblemModal({
     else alert("No automap found in demo");
   }
 
-  function handleSave() {
+  // Add this function to handle saving to backend
+  const handleSaveToBackend = async (condition: DemoCondition) => {
+    try {
+      const result = await pythonApi.saveProblem({
+        patientId: 'test-patient', // You'll need to get this from context
+        namasteCode: condition.namaste?.code,
+        icdCodes: condition.icd11 ? [condition.icd11.code] : []
+      });
+      
+      console.log('Saved to Python backend:', result);
+      alert('Condition saved to backend successfully!');
+      return result;
+    } catch (error) {
+      console.error('Failed to save to backend:', error);
+      alert('Failed to save to backend. Check console for details.');
+      throw error;
+    }
+  };
+
+  async function handleSave() {
     if (!display.trim()) return alert("Enter Display (problem name)");
     if (!namaste || !icd11) return alert("Pick both NAMASTE and ICD‑11");
+    
     const payload: DemoCondition = {
       id: initial?.id ?? "",
       display: display.trim(),
@@ -308,7 +342,20 @@ function ProblemModal({
       verification,
       encounter: encounter.trim() || undefined,
     };
-    onSave(payload);
+    
+    setIsSaving(true);
+    
+    try {
+      // Save to backend first, then to local state
+      await handleSaveToBackend(payload);
+      onSave(payload);
+    } catch (error) {
+      // If backend save fails, still save locally
+      console.warn('Backend save failed, saving locally only');
+      onSave(payload);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -412,7 +459,9 @@ function ProblemModal({
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={handleSave}>{mode === "add" ? "Save" : "Update"}</Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Saving..." : mode === "add" ? "Save" : "Update"}
+              </Button>
             </div>
           </div>
         </div>

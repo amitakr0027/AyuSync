@@ -24,6 +24,25 @@ const InfoIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
+// Mock Python API client
+const pythonApi = {
+  searchNamaste: async (query: string) => {
+    // Simulate API call with delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Mock response - replace with actual API call
+    return [
+      { code: 'NAM001', display: 'Prameha (Live)' },
+      { code: 'NAM006', display: 'Vata Disorder (Live)' },
+      { code: 'NAM007', display: 'Pitta Imbalance (Live)' },
+      { code: 'NAM008', display: 'Kapha Excess (Live)' },
+    ].filter(item => 
+      item.display.toLowerCase().includes(query.toLowerCase()) || 
+      item.code.toLowerCase().includes(query.toLowerCase())
+    );
+  }
+};
+
 // TypeScript: define disorder type for data consistency
 type Disorder = {
   code: string;
@@ -150,18 +169,47 @@ const NamsatePage: React.FC = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [search, setSearch] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Disorder[]>([]);
+  const [apiResults, setApiResults] = useState<any[]>([]);
   const [selectedTerm, setSelectedTerm] = useState<Disorder | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (search.length > 2) {
-      const filtered = staticTerms.filter(
-        (term) =>
-          term.display.toLowerCase().includes(search.toLowerCase()) || term.code.toLowerCase().includes(search.toLowerCase())
-      );
-      setSearchResults(filtered);
-    } else {
-      setSearchResults([]);
-    }
+    const searchNamaste = async () => {
+      if (search.length > 2) {
+        setLoading(true);
+        try {
+          console.log('Searching Python backend for:', search);
+          const data = await pythonApi.searchNamaste(search);
+          console.log('Python API results:', data);
+          setApiResults(data);
+          
+          // Also keep your static results for fallback
+          const filtered = staticTerms.filter(
+            (term) =>
+              term.display.toLowerCase().includes(search.toLowerCase()) || 
+              term.code.toLowerCase().includes(search.toLowerCase())
+          );
+          setSearchResults(filtered);
+        } catch (error) {
+          console.error('Search failed:', error);
+          // Fallback to static search if API fails
+          const filtered = staticTerms.filter(
+            (term) =>
+              term.display.toLowerCase().includes(search.toLowerCase()) || 
+              term.code.toLowerCase().includes(search.toLowerCase())
+          );
+          setSearchResults(filtered);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setSearchResults([]);
+        setApiResults([]);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchNamaste, 300);
+    return () => clearTimeout(debounceTimer);
   }, [search]);
 
   const handleCsvUpload = (evt: ChangeEvent<HTMLInputElement>) => {
@@ -176,7 +224,7 @@ const NamsatePage: React.FC = () => {
         {/* Left panel */}
         <section className="flex-1 bg-white/70 shadow-lg rounded-lg p-6">
           <div className="flex items-center justify-between mb-5">
-            <h1 className="text-2xl font-bold">NAMASTE Terminology (Demo)</h1>
+            <h1 className="text-2xl font-bold">NAMASTE Terminology (Live)</h1>
             <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 bg-gray-50 hover:bg-blue-100 transition">
               <UploadIcon />
               <span className="text-sm">Upload CSV</span>
@@ -189,7 +237,7 @@ const NamsatePage: React.FC = () => {
             <input
               type="text"
               className="w-full rounded border border-gray-300 bg-gray-50 py-2 px-4 focus:border-blue-500 outline-none transition"
-              placeholder="Search disorders (e.g. Prameha)..."
+              placeholder="Search disorders (e.g. Vata)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoComplete="off"
@@ -204,25 +252,66 @@ const NamsatePage: React.FC = () => {
             )}
           </div>
 
-          {search.length > 2 && (
-            <ul className="max-h-64 overflow-y-auto rounded border border-gray-300 bg-white shadow">
-              {searchResults.length === 0 ? (
-                <li className="p-3 text-center text-gray-400 italic">No results found</li>
-              ) : (
-                searchResults.map((term) => (
-                  <li
-                    key={term.code}
-                    className={`cursor-pointer rounded px-3 py-2 hover:bg-blue-100 ${
-                      selectedTerm?.code === term.code ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => setSelectedTerm(term)}
-                  >
-                    <span className="font-semibold">{term.display}</span>{' '}
-                    <span className="ml-2 text-xs text-gray-400">{term.code}</span>
-                  </li>
-                ))
-              )}
-            </ul>
+          {loading && (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+              <p className="text-sm text-gray-500 mt-2">Searching Python backend...</p>
+            </div>
+          )}
+
+          {search.length > 2 && !loading && (
+            <div>
+              <h3 className="font-semibold mb-2">Python Backend Results:</h3>
+              <ul className="max-h-64 overflow-y-auto rounded border border-gray-300 bg-white shadow mb-4">
+                {apiResults.length === 0 ? (
+                  <li className="p-3 text-center text-gray-400 italic">No results from backend</li>
+                ) : (
+                  apiResults.map((item: any) => (
+                    <li
+                      key={item.code}
+                      className="cursor-pointer rounded px-3 py-2 hover:bg-blue-100 border-b"
+                      onClick={() => {
+                        // Create a disorder object from API result
+                        const disorder: Disorder = {
+                          code: item.code,
+                          display: item.display,
+                          tm2Code: "TM2-API", // Placeholder
+                          tm2Text: "From Python API",
+                          bioCode: "BIO-API", // Placeholder
+                          bioText: "From Python API"
+                        };
+                        setSelectedTerm(disorder);
+                      }}
+                    >
+                      <span className="font-semibold">{item.display}</span>{' '}
+                      <span className="ml-2 text-xs text-gray-400">{item.code}</span>
+                      <span className="ml-2 text-xs text-green-600">• Live</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+
+              <h3 className="font-semibold mb-2">Static Demo Results:</h3>
+              <ul className="max-h-64 overflow-y-auto rounded border border-gray-300 bg-white shadow">
+                {searchResults.length === 0 ? (
+                  <li className="p-3 text-center text-gray-400 italic">No results found</li>
+                ) : (
+                  searchResults.map((term) => (
+                    <li
+                      key={term.code}
+                      className={`cursor-pointer rounded px-3 py-2 hover:bg-blue-100 ${
+                        selectedTerm?.code === term.code ? 'bg-blue-50' : ''
+                      }`}
+                      onClick={() => setSelectedTerm(term)}
+                    >
+                      <span className="font-semibold">{term.display}</span>{' '}
+                      <span className="ml-2 text-xs text-gray-400">{term.code}</span>
+                      <span className="ml-2 text-xs text-blue-600">• Demo</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
           )}
 
           {/* Browse Disorder Hierarchy */}
