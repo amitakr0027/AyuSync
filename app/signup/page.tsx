@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,6 +25,7 @@ export default function SignUpPage() {
     agreeToTerms: false,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const router = useRouter()
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -47,12 +49,46 @@ export default function SignUpPage() {
 
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      // Success - redirect to home page
-      window.location.href = "/home"
+    try {
+      // Check if user already exists
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]")
+      const userExists = existingUsers.some((user: any) => user.email === formData.email)
+      
+      if (userExists) {
+        setErrors({ submit: "User with this email already exists" })
+        setIsLoading(false)
+        return
+      }
+
+      // Create new user
+      const newUser = {
+        id: Date.now().toString(),
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password, // In a real app, this should be hashed
+        role: formData.role,
+        createdAt: new Date().toISOString()
+      }
+
+      // Save user to localStorage
+      const updatedUsers = [...existingUsers, newUser]
+      localStorage.setItem("users", JSON.stringify(updatedUsers))
+      
+      // Also store current user session
+      localStorage.setItem("currentUser", JSON.stringify(newUser))
+      localStorage.setItem("isLoggedIn", "true")
+
+      // Redirect based on role
+      if (formData.role === "doctor" || formData.role === "hospital-admin") {
+        router.push("/admin-dashboard")
+      } else {
+        router.push("/dashboard")
+      }
+    } catch (error) {
+      setErrors({ submit: "An error occurred during registration" })
+    } finally {
       setIsLoading(false)
-    }, 2000)
+    }
   }
 
   return (
@@ -83,6 +119,12 @@ export default function SignUpPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {errors.submit && (
+              <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-in slide-in-from-top-2 font-sans">
+                {errors.submit}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 gap-6">
                 {/* Full Name Field */}

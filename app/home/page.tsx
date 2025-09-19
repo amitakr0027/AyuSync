@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import DualCodingWorkspace from '@/components/DualCodingWorkspace';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -58,7 +59,7 @@ const getSidebarMenuItems = (userRole: string) => {
   const baseItems = [{ icon: Home, label: "Dashboard", href: "/home", active: true }]
 
   if (userRole === "doctor" || userRole === "nurse") {
-    return [
+    const items = [
       ...baseItems,
       { icon: Users, label: "Patients", href: "/patients", badge: "12" },
       { icon: Calendar, label: "Appointments", href: "/appointments", badge: "3" },
@@ -72,8 +73,17 @@ const getSidebarMenuItems = (userRole: string) => {
       { icon: BarChart3, label: "Analytics", href: "/analytics" },
       { icon: Settings, label: "Settings", href: "/settings" },
     ]
-  } else if (userRole === "hospital-admin") {
-    return [
+
+    // ✅ add Admin Dashboard only for doctors
+    if (userRole === "doctor") {
+      items.push({ icon: Shield, label: "Admin", href: "/admin", badge: "Restricted" })
+    }
+
+    return items
+  } 
+  
+  if (userRole === "hospital-admin") {
+    const items = [
       ...baseItems,
       { icon: UserCog, label: "User Management", href: "/users" },
       { icon: History, label: "Audit Logs", href: "/audit" },
@@ -81,7 +91,14 @@ const getSidebarMenuItems = (userRole: string) => {
       { icon: BarChart3, label: "Analytics", href: "/analytics" },
       { icon: Settings, label: "Settings", href: "/settings" },
     ]
-  } else if (userRole === "patient") {
+
+    // ✅ add Admin Dashboard for hospital-admin
+    items.push({ icon: Shield, label: "Admin", href: "/admin", badge: "Restricted" })
+
+    return items
+  } 
+  
+  if (userRole === "patient") {
     return [
       ...baseItems,
       { icon: FileText, label: "My Records", href: "/records" },
@@ -89,19 +106,20 @@ const getSidebarMenuItems = (userRole: string) => {
       { icon: History, label: "Consent Logs", href: "/consent" },
       { icon: Settings, label: "Settings", href: "/settings" },
     ]
-  } else {
-    return [
-      ...baseItems,
-      { icon: Users, label: "Patients", href: "/patients", badge: "12" },
-      { icon: Calendar, label: "Appointments", href: "/appointments", badge: "3" },
-      { icon: Code, label: "NAMASTE", href: "/namaste" },
-      { icon: Languages, label: "WHO Terms", href: "/who-terms" },
-      { icon: Layers, label: "ICD-11", href: "/icd11" },
-      { icon: Database, label: "FHIR", href: "/fhir" },
-      { icon: BarChart3, label: "Analytics", href: "/analytics" },
-      { icon: Settings, label: "Settings", href: "/settings" },
-    ]
   }
+
+  // fallback
+  return [
+    ...baseItems,
+    { icon: Users, label: "Patients", href: "/patients", badge: "12" },
+    { icon: Calendar, label: "Appointments", href: "/appointments", badge: "3" },
+    { icon: Code, label: "NAMASTE", href: "/namaste" },
+    { icon: Languages, label: "WHO Terms", href: "/who-terms" },
+    { icon: Layers, label: "ICD-11", href: "/icd11" },
+    { icon: Database, label: "FHIR", href: "/fhir" },
+    { icon: BarChart3, label: "Analytics", href: "/analytics" },
+    { icon: Settings, label: "Settings", href: "/settings" },
+  ]
 }
 
 const searchResults = [
@@ -682,66 +700,7 @@ export default function HomePage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                    <div className="space-y-3 sm:space-y-4">
-                      <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                        <Code className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                        <h4 className="font-semibold text-primary text-sm sm:text-base">NAMASTE Terminology</h4>
-                        <Badge variant="outline" className="text-xs hidden sm:inline-flex">
-                          Ayurveda, Siddha, Unani
-                        </Badge>
-                      </div>
-                      <Input placeholder="Search NAMASTE codes..." className="bg-primary/5 border-primary/20" />
-                      <div className="space-y-2">
-                        <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 cursor-pointer hover:bg-primary/10 transition-colors">
-                          <div className="font-medium text-sm text-foreground">Vata Dosha Imbalance</div>
-                          <div className="text-xs text-foreground font-semibold">VAT.DIG.001</div>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            Ayurveda
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Layers className="h-5 w-5 text-secondary" />
-                        <h4 className="font-semibold text-secondary">ICD-11 Mappings</h4>
-                        <Badge variant="outline" className="text-xs">
-                          TM2 + Biomed
-                        </Badge>
-                      </div>
-                      <Input placeholder="Search ICD-11 codes..." className="bg-secondary/5 border-secondary/20" />
-                      <div className="space-y-2">
-                        <div className="p-3 bg-secondary/5 rounded-lg border border-secondary/20">
-                          <div className="font-medium text-sm">Traditional Medicine Disorder</div>
-                          <div className="text-xs text-muted-foreground">TM2.A01.1Z</div>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            ICD-11 TM2
-                          </Badge>
-                        </div>
-                        <div className="p-3 bg-accent/5 rounded-lg border border-accent/20">
-                          <div className="font-medium text-sm">Functional Bowel Disorder</div>
-                          <div className="text-xs text-muted-foreground">K59.1</div>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            ICD-11 Bio
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-center mt-6">
-                    <Button className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Save Both Codes to Problem List
-                    </Button>
-                  </div>
-                  <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 text-green-700">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span className="font-medium text-sm">Mapping Confidence: High (95%)</span>
-                    </div>
-                    <div className="text-xs text-green-600 mt-1">Coding rules compliance verified</div>
-                  </div>
+                  <DualCodingWorkspace />
                 </CardContent>
               </Card>
               <Card className="shadow-xl hover:shadow-2xl transition-all duration-500 border-accent/10">
