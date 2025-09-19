@@ -158,7 +158,7 @@ export default function LoginPage() {
       localStorage.setItem("isLoggedIn", "true")
 
       // Redirect to home
-      router.push("/")
+      router.push("/home")
     } catch (err: any) {
       console.error("Google login error:", err)
       
