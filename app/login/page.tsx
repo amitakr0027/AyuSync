@@ -11,10 +11,16 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, Loader2, Heart, Stethoscope } from "lucide-react"
 
+// Firebase imports
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
+import { auth, db } from "@/lib/firebase"
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isAbhaLoading, setIsAbhaLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -30,25 +36,55 @@ export default function LoginPage() {
     setError("")
 
     try {
-      // Get all registered users from localStorage
-      const users = JSON.parse(localStorage.getItem("users") || "[]")
-      
-      // Find user with matching email and password
-      const user = users.find((u: any) => 
-        u.email === formData.email && u.password === formData.password
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
       )
+      const user = userCredential.user
 
-      if (user) {
-        // Store current user session
-        localStorage.setItem("currentUser", JSON.stringify(user))
-        localStorage.setItem("isLoggedIn", "true")
-        
-          router.push("/home")
-      } else {
-        setError("Invalid email or password")
+      // Fetch profile from Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid))
+      const profile = userDoc.exists() ? userDoc.data() : null
+
+      // Store a minimal session object for compatibility with existing code
+      // DO NOT store password. Only store minimal safe info:
+      const currentUser = {
+        uid: user.uid,
+        email: user.email,
+        fullName: profile?.fullName || user.displayName || "User",
+        role: profile?.role || "patient",
       }
-    } catch (err) {
-      setError("An unexpected error occurred")
+      localStorage.setItem("currentUser", JSON.stringify(currentUser))
+      localStorage.setItem("isLoggedIn", "true")
+
+      // Redirect based on role
+      if (currentUser.role === "doctor" || currentUser.role === "hospital-admin") {
+        router.push("/")
+      } else {
+        router.push("/")
+      }
+    } catch (err: any) {
+      console.error("Login error:", err)
+      
+      // Provide user-friendly error messages
+      let errorMessage = "Invalid email or password"
+      
+      if (err.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email address"
+      } else if (err.code === "auth/wrong-password") {
+        errorMessage = "Incorrect password"
+      } else if (err.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address"
+      } else if (err.code === "auth/user-disabled") {
+        errorMessage = "This account has been disabled"
+      } else if (err.code === "auth/too-many-requests") {
+        errorMessage = "Too many failed attempts. Please try again later"
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -63,9 +99,9 @@ export default function LoginPage() {
       // For demo purposes, we'll create a temporary ABHA user
       const abhaUser = {
         id: "abha_user_" + Date.now(),
+        uid: "abha_user_" + Date.now(),
         fullName: "ABHA User",
         email: "abha_user@example.com",
-        password: "abha_auth_token",
         role: "patient",
         createdAt: new Date().toISOString()
       }
@@ -76,9 +112,74 @@ export default function LoginPage() {
       
       router.push("/dashboard?auth=abha")
     } catch (err) {
-      setError("ABHA authentication error")
+      setError("ABHA authentication failed. Please try again.")
     } finally {
       setIsAbhaLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true)
+    setError("")
+    
+    try {
+      const provider = new GoogleAuthProvider()
+      const result = await signInWithPopup(auth, provider)
+
+      const user = result.user
+
+      // Fetch or create user profile in Firestore
+      const userRef = doc(db, "users", user.uid)
+      const userSnap = await getDoc(userRef)
+
+      let profile
+      if (!userSnap.exists()) {
+        // Create new user profile if it doesn't exist
+        const newProfile = {
+          fullName: user.displayName || "",
+          email: user.email,
+          role: "patient", // default role
+          createdAt: serverTimestamp(),
+        }
+        await setDoc(userRef, newProfile)
+        profile = { fullName: user.displayName || "", role: "patient" }
+      } else {
+        profile = userSnap.data()
+      }
+
+      // Save session to localStorage (for compatibility with your AuthContext)
+      const currentUser = {
+        uid: user.uid,
+        email: user.email,
+        fullName: profile?.fullName || user.displayName || "User",
+        role: profile?.role || "patient",
+      }
+      localStorage.setItem("currentUser", JSON.stringify(currentUser))
+      localStorage.setItem("isLoggedIn", "true")
+
+      // Redirect to home
+      router.push("/")
+    } catch (err: any) {
+      console.error("Google login error:", err)
+      
+      // Provide user-friendly error messages for Google auth
+      let errorMessage = "Google sign-in failed"
+      
+      if (err.code === "auth/popup-closed-by-user") {
+        errorMessage = "Sign-in was cancelled"
+      } else if (err.code === "auth/popup-blocked") {
+        errorMessage = "Pop-up was blocked. Please allow pop-ups and try again"
+      } else if (err.code === "auth/cancelled-popup-request") {
+        errorMessage = "Sign-in was cancelled"
+      } else if (err.code === "auth/network-request-failed") {
+        errorMessage = "Network error. Please check your connection and try again"
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
+    } finally {
+      setIsGoogleLoading(false)
     }
   }
 
@@ -133,6 +234,7 @@ export default function LoginPage() {
                     : "border-border hover:border-primary/50 focus:border-primary"
                 }`}
                 required
+                disabled={isLoading || isGoogleLoading || isAbhaLoading}
               />
             </div>
 
@@ -153,11 +255,13 @@ export default function LoginPage() {
                       : "border-border hover:border-primary/50 focus:border-primary"
                   }`}
                   required
+                  disabled={isLoading || isGoogleLoading || isAbhaLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors duration-200"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors duration-200 disabled:opacity-50"
+                  disabled={isLoading || isGoogleLoading || isAbhaLoading}
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -171,6 +275,7 @@ export default function LoginPage() {
                   checked={formData.rememberMe}
                   onCheckedChange={(checked) => setFormData({ ...formData, rememberMe: checked as boolean })}
                   className="border-2 border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  disabled={isLoading || isGoogleLoading || isAbhaLoading}
                 />
                 <Label htmlFor="remember" className="text-sm cursor-pointer font-sans text-muted-foreground">
                   Remember me
@@ -187,7 +292,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full h-12 bg-primary hover:bg-secondary text-primary-foreground font-sans font-semibold hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden"
-              disabled={isLoading}
+              disabled={isLoading || isAbhaLoading || isGoogleLoading}
             >
               {isLoading ? (
                 <>
@@ -214,7 +319,7 @@ export default function LoginPage() {
             <Button
               type="button"
               onClick={handleAbhaLogin}
-              disabled={isAbhaLoading}
+              disabled={isAbhaLoading || isLoading || isGoogleLoading}
               className="w-full h-12 bg-primary hover:bg-secondary text-primary-foreground font-sans font-semibold hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden"
             >
               {isAbhaLoading ? (
@@ -236,27 +341,38 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
+              onClick={handleGoogleLogin}
+              disabled={isLoading || isAbhaLoading || isGoogleLoading}
               className="w-full h-12 bg-transparent hover:bg-primary/5 hover:border-primary/50 border-2 transition-all duration-300 font-sans"
             >
-              <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v極端な状況においても、人間は驚くべき適応能力を発揮することがあります。歴史を通じて、人々は困難な状況に直面しながらも、創造性と回復力をもって対応してきました。現代社会では、技術の進歩が私たちの生活を大きく変え、新たな可能性を開いています。しかし、それと同時に、新たな課題も生じています。私たちは常に変化する環境の中で、バランスを見つけながら前進し続けなければなりません。未来は不確かですが、それはまた希望に満ちたものでもあります。私たち一人ひとりが、より良い明日を築くために貢献できるのです。"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09極端な状況においても、人間は驚くべき適応能力を発揮することがあります。歴史を通じて、人々は困難な状況に直面しながらも、創造性と回復力をもって対応してきました。現代社会では、技術の進歩が私たちの生活を大きく変え、新たな可能性を開いています。しかし、それと同時に、新たな課題も生じています。私たちは常に変化する環境の中で、バランスを見つけながら前進し続けなければなりません。未来は不確かですが、それはまた希望に満ちたものでもあります。私たち一人ひとりが、より良い明日を築くために貢献できるのです。"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Sign in with Google
+              {isGoogleLoading ? (
+                <>
+                  <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                  Signing in with Google...
+                </>
+              ) : (
+                <>
+                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  Sign in with Google
+                </>
+              )}
             </Button>
           </form>
 
